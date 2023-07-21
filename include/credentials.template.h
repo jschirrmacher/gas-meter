@@ -1,6 +1,6 @@
-#define wifi_ssid "wifi name"
-#define wifi_password "wifi password"
+#define wifiSsid "wifi name"
+#define wifiPassword "wifi password"
 
-#define mqtt_server "full qualidied name of MQTT server"
-#define mqtt_user "MQTT server user"
-#define mqtt_password "MQTT server user's password"
+#define mqttServer "full qualidied name of MQTT server"
+#define mqttUser "MQTT server user"
+#define mqttPassword "MQTT server user's password"
