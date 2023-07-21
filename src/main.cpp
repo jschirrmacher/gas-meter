@@ -2,26 +2,28 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <MQTTClient.h>
+
 #include "credentials.h"
 
 int ANALOG_PIN = A0;
 int DIGITAL_PIN = 5;
 float COUNTER_MULTIPLIER = 0.01;
 int LOOP_WAIT = 50;       // Time to wait in ms in each loop()
-int analogPin = A0;
-int digitalPin = 5;
-float counterMultiplier = 0.01;
-
+int MQTT_INTERVAL = 1000; // Interval in ms to send mqtt messages
 
 ESP8266WebServer server(80);
 WiFiClient wifiClient;
+MQTTClient mqttClient;
 
 float voltage = 0;
 int digitalVal = 0;
 int counter = 0;
 String str = "";
+bool mqttConnected = false;
 
 int lastDigitalVal = 0;
+unsigned long lastMillis = millis();
 
 void setup_wifi() {
   delay(100);
@@ -53,8 +55,8 @@ String getMetrics() {
 
 String getHTML() {
   String str = "<!DOCTYPE html>\n<html>\n<head>\n  <title>Gas Meter</title>\n</head>\n<body>\n";
-  str += "<h1>Gas Meter</h1>\n"; 
-  str += "<pre>" + getMetrics() + "</pre>\n";
+  str += "<h1>Gas Meter</h1>\n";
+  str += "<pre>" + getMetrics() + "\nMQTT connected: " + String(mqttConnected) + "</pre>\n";
   str += "<script>setTimeout(() => location.reload(), 1000)</script>\n";
   str += "</body>\n</html>\n";
   return str;
@@ -66,6 +68,9 @@ void setup() {
   pinMode(DIGITAL_PIN, INPUT);
 
   setup_wifi();
+  mqttClient.begin(mqttServer, wifiClient);
+  mqttConnected = mqttClient.connect("mqttServer", mqttUser, mqttPassword);
+  Serial.println("MQTT connected: " + String(mqttConnected));
 
   server.on("/metrics", []() { server.send(200, "text/plain", getMetrics()); });
   server.on("/", []() { server.send(200, "text/html", getHTML()); });
@@ -87,6 +92,11 @@ void loop() {
       Serial.println("counter: " + String(++counter * COUNTER_MULTIPLIER));
     }
   }
+
+  // if (millis() - lastMillis > 1000) {
+  //   lastMillis = millis();
+  //   mqttClient.publish("/gas-counter", "v=" + String(voltage) + ",c=" + String(counter));
+  // }
 
   delay(LOOP_WAIT);
 }
