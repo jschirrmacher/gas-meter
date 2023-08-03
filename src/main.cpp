@@ -2,7 +2,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <MQTTClient.h>
+#include <MQTT.h>
 
 #include "credentials.h"
 
@@ -44,6 +44,16 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+void setup_mqtt() {
+  Serial.print("Connecting to MQTT Server " + String(mqttServer));
+  mqttClient.begin(mqttServer, 1883, wifiClient);
+  while (!mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("\nMQTT connected.");
+}
+
 String getMetrics() {
   String str = "";
   str += "gas_meter_voltage=" + String(voltage) + "\n";
@@ -68,9 +78,7 @@ void setup() {
   pinMode(DIGITAL_PIN, INPUT);
 
   setup_wifi();
-  mqttClient.begin(mqttServer, wifiClient);
-  mqttConnected = mqttClient.connect("mqttServer", mqttUser, mqttPassword);
-  Serial.println("MQTT connected: " + String(mqttConnected));
+  setup_mqtt();
 
   server.on("/metrics", []() { server.send(200, "text/plain", getMetrics()); });
   server.on("/", []() { server.send(200, "text/html", getHTML()); });
@@ -93,10 +101,11 @@ void loop() {
     }
   }
 
-  // if (millis() - lastMillis > 1000) {
-  //   lastMillis = millis();
-  //   mqttClient.publish("/gas-counter", "v=" + String(voltage) + ",c=" + String(counter));
-  // }
+  if (millis() - lastMillis > 1000) {
+    lastMillis = millis();
+    String payload = "{\"voltage\":" + String(voltage) + ",\"total\":" + String(counter) + "}";
+    mqttClient.publish("/gas-counter", payload);
+  }
 
   delay(LOOP_WAIT);
 }
