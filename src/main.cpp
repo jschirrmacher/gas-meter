@@ -19,8 +19,6 @@ MQTTClient mqttClient;
 float voltage = 0;
 int digitalVal = 0;
 int counter = 0;
-String str = "";
-bool mqttConnected = false;
 
 int lastDigitalVal = 0;
 unsigned long lastMillis = millis();
@@ -66,7 +64,10 @@ String getMetrics() {
 String getHTML() {
   String str = "<!DOCTYPE html>\n<html>\n<head>\n  <title>Gas Meter</title>\n</head>\n<body>\n";
   str += "<h1>Gas Meter</h1>\n";
-  str += "<pre>" + getMetrics() + "\nMQTT connected: " + String(mqttConnected) + "</pre>\n";
+  str += "<pre>" + getMetrics() + "\n";
+  str += "MQTT connected: " + String(mqttClient.connected()) + "\n";
+  str += "MQTT last error: " + String(mqttClient.lastError()) + "\n";
+  str += "</pre>\n";
   str += "<script>setTimeout(() => location.reload(), 1000)</script>\n";
   str += "</body>\n</html>\n";
   return str;
@@ -89,8 +90,8 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  float voltage = analogRead(ANALOG_PIN) * (5.0 / 1023.0);
-  int digitalVal = digitalRead(DIGITAL_PIN);
+  voltage = analogRead(ANALOG_PIN) * (5.0 / 1023.0);
+  digitalVal = digitalRead(DIGITAL_PIN);
 
   if (digitalVal != lastDigitalVal) {
     lastDigitalVal = digitalVal;
