@@ -31,37 +31,54 @@ unsigned long lastMillis = millis();
 float temperature = 0;
 float lastTemp = 0;
 
-void setup_wifi() {
-  delay(100);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(wifiSsid);
-
-  WiFi.begin(wifiSsid, wifiPassword);
-
+void assertWifiIsConnected() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
   Serial.println("WiFi connected");
   delay(2000);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
-void setup_mqtt() {
-  Serial.print("Connecting to MQTT Server " + String(mqttServer));
-  mqttClient.begin(mqttServer, 1883, wifiClient);
-  while (!mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
-    Serial.print(".");
-    delay(1000);
-  }
-  Serial.println("\nMQTT connected.");
+void setupWifi() {
+  delay(100);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(wifiSsid);
+
+  WiFi.begin(wifiSsid, wifiPassword);
+  assertWifiIsConnected();
 }
 
-void setup_temperature() {
+void assertMqttIsConnected() {
+  while (!mqttClient.connected()) {
+    if (mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
+      Serial.println("\nMQTT connected.");
+    } else {
+      Serial.println("MQTT failed, code=" + String(mqttClient.lastError()) + ". Try again in 3sec.");
+      delay(3000);
+    }
+  }
+}
+
+void setupMqtt() {
+  Serial.print("Connecting to MQTT Server " + String(mqttServer));
+  mqttClient.begin(mqttServer, 1883, wifiClient);
+  assertMqttIsConnected();
+}
+
+void setupTemperatureSensor() {
   sensors.begin();
+}
+
+bool isSensorConnected() {
+  DeviceAddress deviceAddress;
+  if (!sensors.getAddress(deviceAddress, 0)) {
+    return false;
+  }
+  return sensors.isConnected(deviceAddress);
 }
 
 String getMetrics() {
@@ -78,6 +95,7 @@ String getHTML() {
   String str = "<!DOCTYPE html>\n<html>\n<head>\n  <title>Gas Meter</title>\n</head>\n<body>\n";
   str += "<h1>Gas Meter</h1>\n";
   str += "<pre>" + getMetrics() + "\n";
+  str += "Temp. sensor connected: " + String(isSensorConnected()) + "\n";
   str += "MQTT connected: " + String(mqttClient.connected()) + "\n";
   str += "MQTT last error: " + String(mqttClient.lastError()) + "\n";
   str += "</pre>\n";
@@ -91,8 +109,9 @@ void setup() {
   pinMode(ANALOG_PIN, INPUT);
   pinMode(DIGITAL_PIN, INPUT);
 
-  setup_wifi();
-  setup_mqtt();
+  setupWifi();
+  setupMqtt();
+  setupTemperatureSensor();
 
   server.on("/metrics", []() { server.send(200, "text/plain", getMetrics()); });
   server.on("/", []() { server.send(200, "text/html", getHTML()); });
@@ -118,7 +137,7 @@ void loop() {
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
 
-  if (temperature != lastTemp) {
+  if (abs(temperature - lastTemp) > 0.1) {
     lastTemp = temperature;
     Serial.println("temperature: " + String(temperature, 1) + "°C");
   }
@@ -126,9 +145,11 @@ void loop() {
   if (millis() - lastMillis > 1000) {
     lastMillis = millis();
     String payload = "{\"voltage\":" + String(voltage, 4)
-      + ",\"total\":" + String(counter)
-      + ",\"temp\":" + String(temperature, 1)
+      + ",\"counter\":" + String(counter)
+      + ",\"temperature\":" + String(temperature, 1)
       + "}";
+    assertWifiIsConnected();
+    assertMqttIsConnected();
     mqttClient.publish("gas-meter", payload);
   }
 
