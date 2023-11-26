@@ -3,11 +3,14 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <MQTT.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>            
 
 #include "credentials.h"
 
-int ANALOG_PIN = A0;
-int DIGITAL_PIN = 5;
+#define ANALOG_PIN A0
+#define DIGITAL_PIN 5
+#define KY001_Signal_PIN D2
 float COUNTER_MULTIPLIER = 0.01;
 int LOOP_WAIT = 50;       // Time to wait in ms in each loop()
 int MQTT_INTERVAL = 1000; // Interval in ms to send mqtt messages
@@ -15,6 +18,8 @@ int MQTT_INTERVAL = 1000; // Interval in ms to send mqtt messages
 ESP8266WebServer server(80);
 WiFiClient wifiClient;
 MQTTClient mqttClient;
+OneWire oneWire(KY001_Signal_PIN);
+DallasTemperature sensors(&oneWire);
 
 float voltage = 0;
 int digitalVal = 0;
@@ -22,6 +27,9 @@ int counter = 0;
 
 int lastDigitalVal = 0;
 unsigned long lastMillis = millis();
+
+float temperature = 0;
+float lastTemp = 0;
 
 void setup_wifi() {
   delay(100);
@@ -52,11 +60,16 @@ void setup_mqtt() {
   Serial.println("\nMQTT connected.");
 }
 
+void setup_temperature() {
+  sensors.begin();
+}
+
 String getMetrics() {
   String str = "";
   str += "gas_meter_voltage=" + String(voltage) + "\n";
   str += "gas_meter_value=" + String(digitalVal) + "\n";
-  str += "gas_meter_sum=" + String(counter * COUNTER_MULTIPLIER) + "\n";
+  str += "gas_meter_counter=" + String(counter * COUNTER_MULTIPLIER) + "\n";
+  str += "temperature_value=" + String(temperature) + "\n";
 
   return str;
 }
@@ -102,10 +115,21 @@ void loop() {
     }
   }
 
+  sensors.requestTemperatures();
+  temperature = sensors.getTempCByIndex(0);
+
+  if (temperature != lastTemp) {
+    lastTemp = temperature;
+    Serial.println("temperature: " + String(temperature, 1) + "°C");
+  }
+
   if (millis() - lastMillis > 1000) {
     lastMillis = millis();
-    String payload = "{\"voltage\":" + String(voltage) + ",\"total\":" + String(counter) + "}";
-    mqttClient.publish("/gas-counter", payload);
+    String payload = "{\"voltage\":" + String(voltage, 4)
+      + ",\"total\":" + String(counter)
+      + ",\"temp\":" + String(temperature, 1)
+      + "}";
+    mqttClient.publish("gas-meter", payload);
   }
 
   delay(LOOP_WAIT);
