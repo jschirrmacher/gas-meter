@@ -118,6 +118,7 @@ void setup() {
   Serial.begin(9600);
   pinMode(ANALOG_PIN, INPUT);
   pinMode(DIGITAL_PIN, INPUT);
+  pinMode(KY001_Signal_PIN, INPUT);
 
   setupWifi();
   setupMqtt();
