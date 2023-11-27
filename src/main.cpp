@@ -30,16 +30,21 @@ unsigned long lastMillis = millis();
 
 float temperature = 0;
 float lastTemp = 0;
+int wifiFails = -1;
+int mqttFails = -1;
 
 void assertWifiIsConnected() {
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  if (WiFi.status() != WL_CONNECTED) {
+    wifiFails++;
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println("WiFi connected");
+    delay(2000);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
   }
-  Serial.println("WiFi connected");
-  delay(2000);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
 }
 
 void setupWifi() {
@@ -53,12 +58,15 @@ void setupWifi() {
 }
 
 void assertMqttIsConnected() {
-  while (!mqttClient.connected()) {
-    if (mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
-      Serial.println("\nMQTT connected.");
-    } else {
-      Serial.println("MQTT failed, code=" + String(mqttClient.lastError()) + ". Try again in 3sec.");
-      delay(3000);
+  if (!mqttClient.connected()) {
+    mqttFails++;
+    while (!mqttClient.connected()) {
+      if (mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
+        Serial.println("\nMQTT connected.");
+      } else {
+        Serial.println("MQTT failed, code=" + String(mqttClient.lastError()) + ". Try again in 3sec.");
+        delay(3000);
+      }
     }
   }
 }
@@ -87,6 +95,8 @@ String getMetrics() {
   str += "gas_meter_value=" + String(digitalVal) + "\n";
   str += "gas_meter_counter=" + String(counter * COUNTER_MULTIPLIER) + "\n";
   str += "temperature_value=" + String(temperature) + "\n";
+  str += "wifi_fails=" + String(wifiFails) + "\n";
+  str += "mqtt_fails=" + String(mqttFails) + "\n";
 
   return str;
 }
@@ -144,13 +154,15 @@ void loop() {
 
   if (millis() - lastMillis > 1000) {
     lastMillis = millis();
+    assertWifiIsConnected();
+    assertMqttIsConnected();
     String payload = "{\"voltage\":" + String(voltage, 4)
       + ",\"counter\":" + String(counter)
       + ",\"temperature\":" + String(temperature, 1)
+      + ",\"wifiFails\":" + String(wifiFails)
+      + ",\"mqttFails\":" + String(mqttFails)
       + "}";
-    assertWifiIsConnected();
-    assertMqttIsConnected();
-    mqttClient.publish("gas-meter", payload);
+    mqttClient.publish("tele/gas_meter/SENSOR", payload);
   }
 
   delay(LOOP_WAIT);
