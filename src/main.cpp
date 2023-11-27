@@ -11,9 +11,9 @@
 #define ANALOG_PIN A0
 #define DIGITAL_PIN 5
 #define KY001_Signal_PIN D2
-float COUNTER_MULTIPLIER = 0.01;
-int LOOP_WAIT = 50;       // Time to wait in ms in each loop()
-int MQTT_INTERVAL = 1000; // Interval in ms to send mqtt messages
+#define COUNTER_MULTIPLIER 0.01
+#define LOOP_WAIT 50       // Time to wait in ms in each loop()
+#define MQTT_INTERVAL 1000 // Interval in ms to send mqtt messages
 
 ESP8266WebServer server(80);
 WiFiClient wifiClient;
@@ -160,9 +160,10 @@ void loop() {
     String payload = "{\"voltage\":" + String(voltage, 4)
       + ",\"counter\":" + String(counter)
       + ",\"temperature\":" + String(temperature, 1)
-      + ",\"wifiFails\":" + String(wifiFails)
-      + ",\"mqttFails\":" + String(mqttFails)
-      + "}";
+      + ",\"fails\":{"
+      + "\"wifi\":" + String(wifiFails)
+      + ",\"mqtt\":" + String(mqttFails)
+      + "}}";
     mqttClient.publish("tele/gas_meter/SENSOR", payload);
   }
 
