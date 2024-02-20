@@ -5,6 +5,7 @@
 #include <MQTT.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>            
+#include <ctime>
 
 #include "credentials.h"
 
@@ -130,6 +131,14 @@ void setup() {
   server.begin();
 }
 
+String getIsoTime() {
+  time_t now;
+  time(&now);
+  char buf[sizeof "2011-10-08T07:07:09Z"];
+  strftime(buf, sizeof buf, "%FT%TZ", gmtime(&now));
+  return String(buf);
+}
+
 void loop() {
   server.handleClient();
 
@@ -157,14 +166,17 @@ void loop() {
     lastMillis = millis();
     assertWifiIsConnected();
     assertMqttIsConnected();
-    String payload = "{\"voltage\":" + String(voltage, 4)
+
+    String topic = "tele/gas_meter/" + String(sensorNo) + "/SENSOR";
+    String payload = "{\"time\":" + getIsoTime()
+      + ",\"voltage\":" + String(voltage, 4)
       + ",\"counter\":" + String(counter)
       + ",\"temperature\":" + String(temperature, 1)
       + ",\"fails\":{"
       + "\"wifi\":" + String(wifiFails)
       + ",\"mqtt\":" + String(mqttFails)
       + "}}";
-    mqttClient.publish("tele/gas_meter/SENSOR", payload);
+    mqttClient.publish(topic, payload);
   }
 
   delay(LOOP_WAIT);
