@@ -64,6 +64,7 @@ void assertMqttIsConnected() {
     while (!mqttClient.connected()) {
       if (mqttClient.connect(mqttServer, mqttUser, mqttPassword)) {
         Serial.println("\nMQTT connected.");
+        return;
       } else {
         Serial.println("MQTT failed, code=" + String(mqttClient.lastError()) + ". Try again in 3sec.");
         delay(3000);
@@ -168,7 +169,7 @@ void loop() {
     assertMqttIsConnected();
 
     String topic = "tele/gas_meter/" + String(sensorNo) + "/SENSOR";
-    String payload = "{\"time\":" + getIsoTime()
+    String payload = "{\"time\":\"" + getIsoTime() + "\""
       + ",\"voltage\":" + String(voltage, 4)
       + ",\"counter\":" + String(counter)
       + ",\"temperature\":" + String(temperature, 1)
